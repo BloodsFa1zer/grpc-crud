@@ -1,24 +1,39 @@
 syntax = "proto3";
 option go_package = "./proto";
 
+import "github.com/mwitkow/go-proto-validators/validator.proto";
+//import "protoc-gen-validate@v1.0.2/validate/validate.proto";
+package proto;
+
+
 service UserService {
   rpc Create(CreateUserRequest) returns (UserProfileResponse);
   rpc Read(SingleUserRequest) returns (UserProfileResponse);
-  rpc Update(SingleUserRequest) returns (SuccessResponse);
+  rpc Update(CreateUserRequest) returns (UserProfileResponse);
   rpc Delete(SingleUserRequest) returns (SuccessResponse);
 }
 
 message CreateUserRequest{
   int64 ID = 1;
-  string Nickname = 2;
-  string FirstName = 3;
-  string LastName = 4;
-  string Password = 5;
-  string Role = 6;
-  string CreatedAt = 7;
-  string UpdatedAt = 8;
-  string DeletedAt = 9;
+  string Nickname = 2 [(validator.field) = {string_not_empty:true, msg_exists:true, length_gt : 3, regex: "^[a-zA-Z0-9]$"}];
+  string FirstName = 3 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+  string LastName = 4 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+  string Password = 5 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+  string CreatedAt = 6;
+  string UpdatedAt = 7;
+  string DeletedAt = 8;
 }
+
+//message CreateUserRequest{
+//  int64 ID = 1;
+//  string Nickname = 2 [(validate.rules).string = {min:3, }];
+//  string FirstName = 3 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+//  string LastName = 4 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+//  string Password = 5 [(validator.field) = {string_not_empty:true, msg_exists: true, length_gt : 3}];
+//  string CreatedAt = 6;
+//  string UpdatedAt = 7;
+//  string DeletedAt = 8;
+//}
 
 message SingleUserRequest{
   int64 ID = 1;
@@ -30,12 +45,22 @@ message UserProfileResponse{
   string FirstName = 3;
   string LastName = 4;
   string Password = 5;
-  string Role = 6;
-  string CreatedAt = 7;
-  string UpdatedAt = 8;
-  string DeletedAt = 9;
+//  string Role = 6;
+  string CreatedAt = 6;
+  string UpdatedAt = 7;
+  string DeletedAt = 8;
 }
 
 message SuccessResponse{
   string response = 1;
 }
+
+//
+//import "github.com/envoyproxy/protoc-gen-validate/validate/validate.pb.go";
+//
+//message User {
+//  string name = 1 [(validate.rules).string.len = {min: 5, max: 100}];
+//  int32 age = 2 [(validate.rules).int32.in = {in: [18, 21, 25]}];
+//}
+//
+//

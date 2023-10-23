@@ -4,6 +4,7 @@ import (
 	"app4/database"
 	_ "app4/proto"
 	"database/sql"
+	"errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -16,10 +17,14 @@ func NewUserService(UserDB database.DbInterface) *UserService {
 	return &UserService{UserDB: UserDB}
 }
 
+// TODO: VALIDATION ON USER CREATION!!!!!!!!
 func (us *UserService) Create(user database.User) (int64, error) {
 
 	userID, err := us.UserDB.InsertUser(user)
 	if err != nil {
+		if err == errors.New("such nickName already exists") {
+			return 0, status.Errorf(codes.AlreadyExists, err.Error())
+		}
 		return 0, status.Errorf(codes.Aborted, "can`t insert user")
 	}
 
@@ -27,7 +32,6 @@ func (us *UserService) Create(user database.User) (int64, error) {
 }
 
 func (us *UserService) Get(ID int64) (*database.User, error) {
-
 	if ID == 0 {
 		return nil, status.Errorf(codes.OutOfRange, "id cannot be 0")
 	}
@@ -42,40 +46,29 @@ func (us *UserService) Get(ID int64) (*database.User, error) {
 	return user, nil
 }
 
-//func (uc *UseCase) Update(updateUser models.User) error {
-//	var user models.User
-//	var err error
-//	// check if user exists
-//	if user, err = uc.Get(string(updateUser.ID)); err != nil {
-//		return err
-//	}
-//
-//	// check if only name is going to change,
-//	// as the email cannot be changed
-//	if user.Email != updateUser.Email {
-//		return errors.New("email cannot be changed")
-//	}
-//
-//	err = uc.repo.Update(updateUser)
-//	if err != nil {
-//		// handle the error properly as the error might be something worth to debug
-//	}
-//
-//	return nil
-//}
-//
-//func (uc *UseCase) Delete(id string) error {
-//	var err error
-//	// check if user exists
-//	if _, err = uc.Get(id); err != nil {
-//		return err
-//	}
-//
-//	err = uc.repo.Delete(id)
-//	if err != nil {
-//		// handle the error as it might be something worth to debug
-//		return err
-//	}
-//
-//	return nil
-//}
+func (us *UserService) Update(userID int64, user database.User) (int64, error) {
+
+	updatedUserID, err := us.UserDB.UpdateUser(userID, user)
+	if err == sql.ErrNoRows {
+		return 0, status.Errorf(codes.NotFound, "there is no user with that id ")
+	} else if err == errors.New("such nickName already exists") {
+		return 0, status.Errorf(codes.AlreadyExists, err.Error())
+	} else if err != nil {
+		return 0, status.Errorf(codes.DataLoss, "can`t update user")
+	}
+
+	//return updatedUserID, status.Errorf(codes.OK, "user successfully updated")
+	return updatedUserID, nil
+}
+
+func (us *UserService) Delete(userID int64) error {
+
+	err := us.UserDB.DeleteUserByID(userID)
+	if err == sql.ErrNoRows {
+		return status.Errorf(codes.NotFound, "there is no user with that ID")
+	} else if err != nil {
+		return status.Errorf(codes.DataLoss, "can`t delete user")
+	}
+
+	return nil
+}

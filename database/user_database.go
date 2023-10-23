@@ -4,6 +4,8 @@ import (
 	"app4/config"
 	"app4/hash"
 	"database/sql"
+	"errors"
+	"fmt"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -15,7 +17,7 @@ type User struct {
 	FirstName string `db:"first_name"`
 	LastName  string `db:"last_name"`
 	Password  string `db:"password"`
-	Role      string `db:"role"`
+	//	Role      string         `db:"role"`
 	CreatedAt string `db:"created_at"`
 	UpdatedAt string `db:"updated_at"`
 	DeletedAt string `db:"deleted_at"`
@@ -35,8 +37,6 @@ func NewUserDatabase() *UserDatabase {
 		log.Warn().Err(err).Msg("can`t connect to database")
 	}
 
-	defer db.Close()
-
 	err = db.Ping()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to ping the database")
@@ -48,15 +48,25 @@ func NewUserDatabase() *UserDatabase {
 }
 
 func (db *UserDatabase) FindByID(ID int64) (*User, error) {
-	sqlSelect := `SELECT * FROM Users WHERE ID = ? AND deleted_at == 'NULL'`
-	var num sql.NullInt64
+	err := db.Connection.Ping()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to ping the database")
+		return nil, nil
+	}
+	sqlSelect := `SELECT * FROM Users WHERE ID = $1 AND (deleted_at IS NULL);`
+	var updatedAt sql.NullString
+	var deletedAt sql.NullString
+	//	var num sql.NullInt64
 	var selectedUser User
 
 	row := db.Connection.QueryRow(sqlSelect, ID)
-	err := row.Scan(&selectedUser.ID, &selectedUser.Nickname, &selectedUser.FirstName,
+	err = row.Scan(&selectedUser.ID, &selectedUser.Nickname, &selectedUser.FirstName,
 		&selectedUser.LastName, &selectedUser.Password, &selectedUser.CreatedAt,
-		&selectedUser.UpdatedAt, &selectedUser.DeletedAt, &selectedUser.Role, &num)
+		&updatedAt, &deletedAt)
 	// selectedUser.Rating = num.Int64
+	selectedUser.UpdatedAt = updatedAt.String
+	selectedUser.DeletedAt = deletedAt.String
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, err
@@ -71,33 +81,49 @@ func (db *UserDatabase) FindByID(ID int64) (*User, error) {
 func (db *UserDatabase) InsertUser(user User) (int64, error) {
 	formattedTime := time.Now().Format("2006.01.02 15:04")
 
-	sqlInsert := "INSERT INTO Users (nick_name, first_name, last_name, password, created_at) VALUES (?, ?, ?, ?, ?)"
+	sqlInsert := "INSERT INTO Users (nick_name, first_name, last_name, pass, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id;"
 
 	hashedPassword := hash.Hash(user.Password)
-
-	result, err := db.Connection.Exec(sqlInsert, user.Nickname, user.FirstName, user.LastName, hashedPassword, formattedTime)
+	var lastInsertedID int64
+	err := db.Connection.QueryRow(sqlInsert, user.Nickname, user.FirstName, user.LastName, hashedPassword, formattedTime).Scan(&lastInsertedID)
 	if err != nil {
+		if err == errors.New("pq: duplicate key value violates unique constraint \"users_nick_name_key\"") {
+			return 0, errors.New("such nickName already exists")
+		}
 		log.Warn().Err(err).Msg(" can`t insert user")
 		return 0, err
 	}
 
-	userID, err := result.LastInsertId()
-	if err != nil {
-		log.Warn().Err(err).Msg(" can`t find userID")
-		return 0, err
-	}
-
-	return userID, nil
+	return lastInsertedID, nil
 }
 
 func (db *UserDatabase) UpdateUser(ID int64, user User) (int64, error) {
+	var sqlUpdate string
+	var args []interface{}
+	var UserNick string
 
 	hashedPassword := hash.Hash(user.Password)
-
 	formattedTime := time.Now().Format("2006.01.02 15:04")
-	sqlUpdate := "UPDATE Users SET nick_name = ?, first_name = ?, last_name = ?, password = ?, updated_at = ? WHERE ID = ? AND deleted_at == 'NULL'"
 
-	result, err := db.Connection.Exec(sqlUpdate, user.Nickname, user.FirstName, user.LastName, hashedPassword, formattedTime, ID)
+	fmt.Println("user:", user)
+
+	sqlCheckUserNick := "SELECT nick_name FROM Users WHERE id = $1 AND (deleted_at IS NULL);"
+
+	err := db.Connection.QueryRow(sqlCheckUserNick, ID).Scan(&UserNick)
+	if err != nil {
+		return 0, err
+	}
+
+	args = append(args, user.FirstName, user.LastName, hashedPassword, formattedTime, ID)
+
+	if user.Nickname != UserNick {
+		sqlUpdate = "UPDATE Users SET first_name = $1, last_name = $2, pass = $3, updated_at = $4, nick_name = $6 WHERE id = $5 AND (deleted_at IS NULL);"
+		args = append(args, user.Nickname)
+	} else {
+		sqlUpdate = "UPDATE Users SET first_name = $1, last_name = $2, pass = $3, updated_at = $4 WHERE id = $5 AND (deleted_at IS NULL);"
+	}
+	fmt.Println(args...)
+	result, err := db.Connection.Exec(sqlUpdate, args...)
 	if err != nil {
 		log.Warn().Err(err).Msg(" can`t update user`s data")
 		return 0, err
@@ -119,7 +145,7 @@ func (db *UserDatabase) UpdateUser(ID int64, user User) (int64, error) {
 
 func (db *UserDatabase) FindUsers() (*[]User, error) {
 
-	sqlSelect := "SELECT * FROM Users WHERE deleted_at == 'NULL'"
+	sqlSelect := "SELECT * FROM Users WHERE deleted_at IS NULL;"
 	rows, err := db.Connection.Query(sqlSelect)
 	if err != nil {
 		log.Warn().Err(err).Msg(" can`t find users")
@@ -132,7 +158,7 @@ func (db *UserDatabase) FindUsers() (*[]User, error) {
 		var singleUser User
 		err := rows.Scan(&singleUser.ID, &singleUser.Nickname, &singleUser.FirstName,
 			&singleUser.LastName, &singleUser.Password, &singleUser.CreatedAt,
-			&singleUser.UpdatedAt, &singleUser.DeletedAt, &singleUser.Role)
+			&singleUser.UpdatedAt, &singleUser.DeletedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +170,7 @@ func (db *UserDatabase) FindUsers() (*[]User, error) {
 
 func (db *UserDatabase) DeleteUserByID(ID int64) error {
 	formattedTime := time.Now().Format("2006.01.02 15:04")
-	sqlSoftDelete := "UPDATE Users SET (deleted_at) = (?) WHERE ID = ? AND deleted_at == 'NULL'"
+	sqlSoftDelete := "UPDATE Users SET deleted_at = $1 WHERE ID = $2 AND deleted_at IS NULL;"
 
 	result, err := db.Connection.Exec(sqlSoftDelete, formattedTime, ID)
 	if err != nil {

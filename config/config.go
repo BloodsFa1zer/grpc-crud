@@ -11,7 +11,8 @@ type Config struct {
 	UserDBName     string `env:"UserDatabaseName"`
 	DBName         string `env:"DatabaseName"`
 	DriverDBName   string `env:"DriverDatabaseName"`
-	Addr           string `env:"GrpcAdrr"`
+	GRPCAddr       string `env:"GrpcAddr"`
+	GRPCHost       string `env:"GrpcHost"`
 }
 
 func LoadENV(filename string) *Config {
