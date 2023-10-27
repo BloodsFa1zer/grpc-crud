@@ -4,7 +4,7 @@ import (
 	"app4/config"
 	"app4/database"
 	"app4/handler"
-	"app4/proto"
+	proto "app4/proto"
 	"app4/service"
 	"google.golang.org/grpc"
 	"log"
