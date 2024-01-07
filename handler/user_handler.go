@@ -39,7 +39,7 @@ func (ss *ServerService) Create(ctx context.Context, req *pb.CreateUserRequest) 
 	}
 
 	// no need to check error as transformUserModel() used only with previously created users
-	user, _ := ss.UserService.Get(userID)
+	user, _ := ss.UserService.Read(userID)
 	return ss.transformUserModel(*user), nil
 }
 
@@ -53,7 +53,7 @@ func (ss *ServerService) Read(ctx context.Context, req *pb.SingleUserRequest) (*
 
 	ID := req.GetID()
 
-	user, err := ss.UserService.Get(ID)
+	user, err := ss.UserService.Read(ID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (ss *ServerService) Update(ctx context.Context, req *pb.UpdateUserRequest) 
 		return nil, err
 	}
 
-	user, _ := ss.UserService.Get(updatedID)
+	user, _ := ss.UserService.Read(updatedID)
 
 	return ss.transformUserModel(*user), nil
 }

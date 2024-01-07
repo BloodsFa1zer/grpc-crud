@@ -2,7 +2,7 @@ package client
 
 import (
 	"app4/config"
-	"app4/proto"
+	proto "app4/proto"
 	_ "context"
 	"google.golang.org/grpc"
 	"log"

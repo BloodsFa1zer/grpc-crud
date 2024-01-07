@@ -6,5 +6,4 @@ type DbInterface interface {
 	UpdateUser(ID int64, user User) (int64, error)
 	FindUsers() (*[]User, error)
 	DeleteUserByID(ID int64) error
-	//	FindByNicknameToGetUserPassword(nickname string) (*User, error)
 }

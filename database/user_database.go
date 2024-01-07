@@ -63,7 +63,6 @@ func (db *UserDatabase) FindByID(ID int64) (*User, error) {
 	err = row.Scan(&selectedUser.ID, &selectedUser.Nickname, &selectedUser.FirstName,
 		&selectedUser.LastName, &selectedUser.Password, &selectedUser.CreatedAt,
 		&updatedAt, &deletedAt)
-	// selectedUser.Rating = num.Int64
 	selectedUser.UpdatedAt = updatedAt.String
 	selectedUser.DeletedAt = deletedAt.String
 

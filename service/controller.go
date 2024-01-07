@@ -31,7 +31,7 @@ func (us *UserService) Create(user database.User) (int64, error) {
 	return userID, nil
 }
 
-func (us *UserService) Get(ID int64) (*database.User, error) {
+func (us *UserService) Read(ID int64) (*database.User, error) {
 	if ID == 0 {
 		return nil, status.Errorf(codes.OutOfRange, "id cannot be 0")
 	}
